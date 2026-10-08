@@ -1,0 +1,37 @@
+system: {'date': '2026-10-08 06:22', 'cpu': 'Intel(R) Xeon(R) Processor @ 2.30GHz', 'logical_cpus': 1, 'os': 'Linux-6.18.44-fc-v80-x86_64-with-glibc2.39', 'compiler': 'g++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0', 'reps': 3, 'fixed_N': 1000000.0}
+E1 N=   10000  seq=0.012s  omp(1)=0.014s
+E1 N=   50000  seq=0.065s  omp(1)=0.082s
+E1 N=  100000  seq=0.144s  omp(1)=0.177s
+E1 N=  500000  seq=0.715s  omp(1)=0.871s
+E1 N= 1000000  seq=1.480s  omp(1)=1.842s
+E1 N= 2000000  seq=3.914s  omp(1)=4.583s
+E1 N= 4000000  seq=10.220s  omp(1)=11.546s
+E2 threads= 1  time=1.840s  speedup=0.83
+E2 threads= 2  time=1.835s  speedup=0.84
+E2 threads= 4  time=1.841s  speedup=0.83
+E2 threads= 8  time=1.858s  speedup=0.83
+             group  value     time   attack  peakI  peakDay
+contacts per agent      2 0.303687 0.988422 142476       73
+contacts per agent      4 0.439910 0.987780 141373       74
+contacts per agent      8 0.725642 0.987484 140462       72
+contacts per agent     16 1.318927 0.987048 139861       74
+contacts per agent     32 2.576485 0.987150 140445       74
+    simulated days     30 0.223068 0.012058   2078       30
+    simulated days     60 0.496453 0.464438  82596       60
+    simulated days    120 0.717036 0.987484 140462       72
+    simulated days    240 0.768710 0.988032 140462       72
+          scenario  India 0.667875 0.996428 174228       68
+          scenario     US 0.409852 0.999972 208358       41
+          scenario  Italy 0.503488 0.999472 186909       51
+          scenario Brazil 0.597503 0.999960 248365       58
+              beta   0.15 0.903499 0.010478   1052      120
+              beta    0.3 0.988270 0.879332  95815      104
+              beta    0.6 0.601097 0.997424 167627       59
+              beta    1.2 0.406115 0.999996 215242       39
+E4 static   time=1.958s
+E4 dynamic  time=1.811s
+E4 guided   time=1.831s
+  country  real_growth_rate  simulated_growth_rate
+0   India          0.168447               0.150640
+1  Brazil          0.213975               0.188196
+done -> results/
