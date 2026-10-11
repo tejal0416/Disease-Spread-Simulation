@@ -1,44 +1,38 @@
-# LLM Usage Log – Q28 Disease Spread Simulation
+I have attached my DAA project instructions PDF, the Q28 Disease Spread Simulation problem statement, and the JHU COVID-19 time-series dataset containing confirmed cases, deaths, and recovered cases.
+Build a complete working project based strictly on these attached materials. The project must include:
+A sequential version of the Disease Spread Simulation.
+An OpenMP parallel version.
+Correctness tests to verify that the sequential and parallel versions produce correct and consistent results.
+Performance experiments to investigate the effect of population size and simulation parameters on execution time.
+Graphs for the performance experiments.
+A complete report following exactly the format and requirements specified in the attached DAA project instructions PDF.
+Use the provided JHU COVID-19 dataset where required by the project instructions/problem statement. Keep the implementation simple, readable, and explainable in a viva.
 
-> **Instruction from the course PDF:** record the *actual* prompts your group used while developing the
-> project. The entries below document how the AI assistant (Claude) was used to produce the first version
-> of this package. **Add your own prompts and verification notes** (rows 6 onward) as you read, run,
-> modify and extend the project – you must be able to explain each row in the viva.
+Write all the code in C++17 instead of C. Put the model in a shared header so the sequential and OpenMP programs use exactly the same update rule. 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-| Sr. | Purpose | Prompt used | How the response was used | Modification / verification |
-|---|---|---|---|---|
-| 1 | Project generation | "i have provided you my dataset my problem statement and instruction of my project pdf which my teacher provided me build me a complete working project file accordingly and also prepare a report as mentioned in the pdf" | Assistant analysed the dataset, designed the SEIRD agent-based model, implemented sequential + OpenMP code, scripts, report | All code compiled and run; `make test` compares parallel vs sequential output byte-for-byte |
-| 2 | Language choice | "write code in c++" | Original C prototype was rewritten in C++17 (`sim_common.hpp`, `disease_seq.cpp`, `disease_omp.cpp`) | Re-ran comparison: sequential and 4-thread outputs identical after the port |
-| 3 | Parallelisation design | (part of prompt 1) Choose between OpenMP / MPI / CUDA | OpenMP selected: state fits in shared memory, random-access contacts | Reasoning in report §5.3; verified by tests and timing |
-| 4 | Debugging / design check | *(no separate prompt recorded – assistant's own analysis during prompt 1; replace with your actual prompt if you asked this separately)* Race-condition analysis of the update loop | Double buffering + reduction + stateless RNG → no shared writes | Verified experimentally: identical output for 1–8 threads, 3 schedules |
-| 5 | Calibration sanity | *(no separate prompt recorded – assistant's own check during prompt 1; replace with your actual prompt if you asked this separately)* Italy gamma = 0.027, R0 = 21.8 looked unrealistic | Added acceptance range 0.05–0.4 with default fallback | Re-ran `calibrate.py`; Italy R0 = 7.6; validation plot (report Fig. 8) |
-| 6 | Final review against the course PDF | "make any change required according to the instructions also explain in detail in extreme detail what is the project about explain in a way we are able to explain any question with any difficulty" (with the instruction PDF, project zip and report PDF attached) | Review found: report generator mis-built the team table (roll-no. column held the role); two unsupported claims in the report ("first-touch-friendly allocation", "two multiplies per hash"); stale single-core notes in README / LLM log; hand edits to the PDF missing from `make_report.py`. All fixed, report regenerated. | Re-ran `make test` (55/55 pass); regenerated report and diffed its text against the previous PDF; checked the first-touch and hash claims against `sim_common.hpp` / `disease_omp.cpp` |
-| 7 | *(your prompt)* | | | |
+Use a stochastic agent-based SEIRD model with S→E→I→R/D. Each susceptible agent has kl local contacts within ±window indices and kg global random contacts. The per-contact infection probability is β/(kl+kg). Latent, infectious and death rates come from σ, γ and CFR. 
 
-## Critical evaluation of LLM output (required: at least one case)
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Make the daily update synchronous. next_state() must read only yesterday's array and return the new state of one agent. Use two buffers and swap them at the end of each day, so no agent ever sees a half-updated day 
 
-**Case 1 – per-thread random generators (rejected).**
-*Suggested:* give each OpenMP thread its own `std::mt19937` seeded with the thread id (the usual pattern).
-*Why considered:* common recommendation, easy to implement.
-*Decision:* rejected – results would change with the number of threads and the loop schedule, so the
-parallel program could never be compared exactly with the sequential one. Replaced with a stateless
-counter-based RNG `rng(seed, day, agent, slot)`.
-*Verification:* `scripts/verify.py` shows byte-identical daily output for 1, 2, 3, 4, 8 threads and
-static/dynamic/guided schedules.
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Compare OpenMP, MPI and CUDA for this problem. Which one fits when the whole state is N bytes and contacts are random-access? Justify the choice for the report 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Parallelize the agent loop with #pragma omp parallel for and reduction(+: s,e,in,r,d) for the daily S/E/I/R/D totals. Let me pick the schedule at run time (static, dynamic or guided) and the thread count from the command line. 
 
-**Case 2 – automatic estimate of the recovery rate (modified).**
-*Suggested:* gamma = median(new recoveries / active cases) from the dataset.
-*Problem found:* Italy gave gamma = 0.027 (37-day infectious period) and R0 = 21.8, because recoveries are
-reported with long delays.
-*Modification:* accept the estimate only inside 0.05–0.4, otherwise use 0.10 and label it "default" in the report.
-*Verification:* recalibrated (Italy R0 = 7.6); simulated early growth rates (0.151 India, 0.188 Brazil) are close to the
-real ones (0.168, 0.214).
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Review the OpenMP loop for data races. Which variables are shared and which are private? Prove that each thread writes only its own slot of nxt, and explain what the implicit barrier does before the buffer swap. 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-**Case 3 – unsupported performance claims in the AI-drafted report (corrected).**
-*Suggested:* the drafted report listed "first-touch-friendly allocation" as an optimisation and said the hash costs
-"two multiplies per contact".
-*Why considered:* both are plausible, typical statements in OpenMP performance write-ups.
-*Problem found on code review:* `nxt` and `cur` are `std::vector<uint8_t>` objects zero-initialised serially by the main
-thread, so first touch is not parallel; `rng()` calls `splitmix64` twice (about four 64-bit multiplications).
-*Decision:* claim removed, hash cost restated; no result in the report depends on first-touch.
-*Verification:* read `sim_common.hpp` and `disease_omp.cpp`; regenerated report.
+Give each OpenMP thread its own std::mt19937 seeded with the thread id. Will the parallel result match the sequential one? Show what goes wrong when I change the thread count or the schedule. 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Replace the per-thread generators with a stateless counter-based RNG, rng(seed, day, agent, slot), built from SplitMix64. The random number for an agent must not depend on which thread runs it. Also make the initial infected placement deterministic. 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Write calibrate.py to read the JHU confirmed, deaths and recovered files for India, US, Italy and Brazil. Align day 0 at 100 cases and fit the early exponential growth rate over 21 days. Estimate γ from recoveries/active cases and CFR from deaths/confirmed. Get β from (r+σ)(r+γ) = σβ with σ = 1/5.2. Write params_<country>.txt files that the C++ programs can load with --params 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Italy's γ comes out as 0.027 and R0 as 21.8, which looks unrealistic. Add an acceptance range for γ and fall back to a default when the estimate is outside it. Label the fallback clearly as 'default' in the outputs. 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Write verify.py with three tests. (1) The OpenMP daily CSV and final checksum must be identical to the sequential run for several thread counts, schedules, population sizes and parameter sets. (2) Population must be conserved every day, and R and D must never decrease. (3) The same seed must give the same result and a different seed a different result. Save the outcome to verification.csv. 
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Write run_benchmarks.py for five experiments: E1 time vs population size, E2 strong scaling with speedup and efficiency, E3 effect of contacts, days and country parameters, E4 static vs dynamic vs guided, E5 epidemic curves validated against real growth rates. Take the best of several repetitions, record the machine info, and save CSVs and graphs G1–G8 
